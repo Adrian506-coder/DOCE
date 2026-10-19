@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cafetería · Productos</title>
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-md navbar-dark navbar-cafeteria">
+    <div class="container">
+        <a class="navbar-brand" href="index.html">DOCE <span>Cafetería</span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="ventas.html">Venta</a></li>
+                <li class="nav-item"><a class="nav-link" href="ordenes.html">Órdenes</a></li>
+                <li class="nav-item"><a class="nav-link active" href="productos.html">Productos</a></li>
+                <li class="nav-item"><a class="nav-link" href="historial.html">Historial y corte</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+    <h1 class="page-title">Productos</h1>
+    <p class="page-sub mb-3">Agrega lo que vendes. Lo que desactives deja de aparecer en Venta.</p>
+
+    <div id="alertas"></div>
+
+    <div class="card-cafeteria p-4 mb-4">
+        <form id="form-producto">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="nombre" class="form-label fw-semibold small text-muted">Nombre del producto</label>
+                    <input type="text" id="nombre" class="form-control" placeholder="Ej. Capuchino grande" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="precio" class="form-label fw-semibold small text-muted">Precio</label>
+                    <input type="number" id="precio" step="0.01" min="0" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="categoria" class="form-label fw-semibold small text-muted">Categoría</label>
+                    <input type="text" id="categoria" class="form-control" placeholder="Ej. Bebidas calientes">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-cafeteria-primary w-100">Agregar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="mb-3">
+        <input type="text" id="buscar-producto" class="form-control" placeholder="Buscar por nombre o categoría...">
+    </div>
+
+    <div class="table-responsive card-cafeteria p-0">
+        <table class="table tabla-cafeteria mb-0">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th>Estado</th>
+                    <th colspan="2"></th>
+                </tr>
+            </thead>
+            <tbody id="tabla-productos">
+                <tr><td colspan="6" class="text-center text-muted py-4">Cargando productos...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Editar producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="alertas-editar"></div>
+                <form id="form-editar">
+                    <input type="hidden" id="editar-id">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-muted">Nombre</label>
+                        <input type="text" id="editar-nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-muted">Precio</label>
+                        <input type="number" id="editar-precio" step="0.01" min="0" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small text-muted">Categoría</label>
+                        <input type="text" id="editar-categoria" class="form-control">
+                    </div>
+                    <div class="alert alert-warning small mb-0">
+                        Cambiar el precio aquí solo afecta a las ventas que hagas de ahora en adelante. Las ventas que ya se hicieron conservan el precio que tenían en ese momento.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btn-guardar-editar" class="btn btn-cafeteria-primary">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="css/bootstrap.bundle.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/productos.js"></script>
+</body>
+</html>

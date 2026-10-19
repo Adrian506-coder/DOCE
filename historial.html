@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cafetería · Historial y corte</title>
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+
+<nav class="navbar navbar-expand-md navbar-dark navbar-cafeteria">
+    <div class="container">
+        <a class="navbar-brand" href="index.html">DOCE <span>Cafetería</span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="ventas.html">Venta</a></li>
+                <li class="nav-item"><a class="nav-link" href="ordenes.html">Órdenes</a></li>
+                <li class="nav-item"><a class="nav-link" href="productos.html">Productos</a></li>
+                <li class="nav-item"><a class="nav-link active" href="historial.html">Historial y corte</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+        <div>
+            <h1 class="page-title mb-1">Historial y corte de caja</h1>
+            <p class="page-sub mb-0">Consulta lo vendido por rango de fechas. Por defecto muestra los últimos 30 días.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" id="btn-excel-todo">Descargar todo (Excel)</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn-pdf-todo">Descargar todo (PDF)</button>
+        </div>
+    </div>
+
+    <h2 class="h5" style="font-family:'Fraunces',serif;">Control de caja</h2>
+    <div class="card-cafeteria p-4 mb-4" id="caja-estado">
+        <div class="text-muted">Cargando estado de caja...</div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0" style="font-family:'Fraunces',serif;">Historial de cortes de caja</h2>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-excel-caja">Descargar Excel</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pdf-caja">Descargar PDF</button>
+        </div>
+    </div>
+    <div class="table-responsive card-cafeteria p-0 mb-4">
+        <table class="table tabla-cafeteria mb-0">
+            <thead>
+                <tr>
+                    <th>Apertura</th>
+                    <th>Cierre</th>
+                    <th>Fondo inicial</th>
+                    <th>Ventas del turno</th>
+                    <th>Efectivo esperado</th>
+                    <th>Efectivo contado</th>
+                    <th>Diferencia</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-cortes-caja">
+                <tr><td colspan="7" class="text-center text-muted py-4">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <form id="form-filtro" class="row g-2 align-items-end mb-4">
+        <div class="col-auto">
+            <label for="desde" class="form-label fw-semibold small text-muted">Desde</label>
+            <input type="date" id="desde" class="form-control">
+        </div>
+        <div class="col-auto">
+            <label for="hasta" class="form-label fw-semibold small text-muted">Hasta</label>
+            <input type="date" id="hasta" class="form-control">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-cafeteria-primary">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="row g-3 mb-4" id="stats">
+        <div class="col-12 text-muted">Cargando...</div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0" style="font-family:'Fraunces',serif;">Corte por día</h2>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-excel-corte">Descargar Excel</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pdf-corte">Descargar PDF</button>
+        </div>
+    </div>
+    <div class="table-responsive card-cafeteria p-0 mb-4">
+        <table class="table tabla-cafeteria mb-0">
+            <thead><tr><th>Fecha</th><th>N.º de ventas</th><th>Efectivo</th><th>Tarjeta</th><th>Total del día</th></tr></thead>
+            <tbody id="tabla-corte"><tr><td colspan="3" class="text-center text-muted py-4">Cargando...</td></tr></tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0" style="font-family:'Fraunces',serif;">Detalle de ventas — Efectivo</h2>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-excel-detalle">Descargar Excel</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pdf-detalle">Descargar PDF</button>
+        </div>
+    </div>
+    <div class="table-responsive card-cafeteria p-0 mb-4">
+        <table class="table tabla-cafeteria mb-0">
+            <thead><tr><th>Fecha</th><th>N.º de ventas</th><th>Total del día</th></tr></thead>
+            <tbody id="tabla-detalle-efectivo"></tbody>
+        </table>
+    </div>
+
+    <h2 class="h5 mb-2" style="font-family:'Fraunces',serif;">Detalle de ventas — Tarjeta</h2>
+    <div class="table-responsive card-cafeteria p-0">
+        <table class="table tabla-cafeteria mb-0">
+            <thead><tr><th>Fecha</th><th>N.º de ventas</th><th>Total del día</th></tr></thead>
+            <tbody id="tabla-detalle-tarjeta"></tbody>
+        </table>
+    </div>
+
+</main>
+
+<div class="modal fade" id="modalAbrirCaja" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Abrir caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="alertas-abrir"></div>
+                <label class="form-label fw-semibold small text-muted">Fondo inicial (efectivo con el que empiezas)</label>
+                <input type="number" id="input-fondo-inicial" step="0.01" min="0" class="form-control" placeholder="0.00">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btn-confirmar-abrir" class="btn btn-cafeteria-primary">Abrir caja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCerrarCaja" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Cerrar caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="alertas-cerrar"></div>
+                <p class="small text-muted" id="resumen-antes-cerrar">Cargando...</p>
+                <label class="form-label fw-semibold small text-muted">Efectivo que contaste físicamente en caja</label>
+                <input type="number" id="input-efectivo-contado" step="0.01" min="0" class="form-control" placeholder="0.00">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btn-confirmar-cerrar" class="btn btn-cafeteria-primary">Cerrar caja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="css/bootstrap.bundle.min.js"></script>
+<script src="js/xlsx.full.min.js"></script>
+<script src="js/jspdf.umd.min.js"></script>
+<script src="js/jspdf.plugin.autotable.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/historial.js"></script>
+</body>
+</html>

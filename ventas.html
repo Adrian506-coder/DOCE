@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cafetería · Venta</title>
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-md navbar-dark navbar-cafeteria">
+    <div class="container">
+        <a class="navbar-brand" href="index.html">DOCE <span>Cafetería</span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link active" href="ventas.html">Venta</a></li>
+                <li class="nav-item"><a class="nav-link" href="ordenes.html">Órdenes</a></li>
+                <li class="nav-item"><a class="nav-link" href="productos.html">Productos</a></li>
+                <li class="nav-item"><a class="nav-link" href="historial.html">Historial y corte</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+    <h1 class="page-title">Nueva venta</h1>
+    <p class="page-sub mb-3">Selecciona los productos, revisa el total y cobra.</p>
+
+    <div id="alertas"></div>
+
+    <div class="row g-4">
+                <div class="col-lg-7">
+            <div class="mb-2">
+                <input type="text" id="buscar-producto-venta" class="form-control" placeholder="Buscar por nombre o categoría...">
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3" id="categorias-chips"></div>
+            <div class="row g-2" id="productos-grid">
+                <div class="col-12 text-muted">Cargando productos...</div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="recibo">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">Recibo</h2>
+                    <span id="cliente-mostrado" class="small fw-semibold" style="display:none; cursor:pointer;"></span>
+                    <button type="button" id="btn-cliente" class="accion-linea">+ nombre</button>
+                </div>
+                <div class="fecha" id="fecha-actual"></div>
+
+                <div id="ticket-lineas"></div>
+
+                <div class="totales">
+                    <div class="fila total">
+                        <span>Total</span>
+                        <span id="total-carrito">$0.00</span>
+                    </div>
+                </div>
+
+                <form id="form-pagar">
+                    <label for="recibido" class="form-label mt-3 fw-semibold small text-muted">Efectivo recibido</label>
+                    <input type="number" step="0.01" min="0" id="recibido" class="form-control" placeholder="0.00" required>
+
+                    <div class="totales">
+                        <div class="fila cambio">
+                            <span>Cambio</span>
+                            <span id="cambio-preview">$0.00</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-cobrar" class="btn btn-cafeteria-primary w-100 mt-3 py-2" disabled>Cobrar</button>
+                    <button type="button" id="btn-tarjeta" class="btn btn-outline-secondary w-100 mt-2 py-2" disabled>💳 Pagar con tarjeta</button>
+                </form>
+
+                <button type="button" id="btn-vaciar" class="btn btn-outline-secondary w-100 mt-2 d-none">Vaciar carrito</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalNota" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Nota del producto (opcional)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="nota-idx">
+                <div class="mb-3" id="grupo-nota-leche">
+                    <label class="form-label fw-semibold small text-muted">Leche</label>
+                    <select id="nota-leche" class="form-select">
+                        <option value="">(sin especificar)</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="grupo-nota-topping">
+                    <label class="form-label fw-semibold small text-muted">Topping</label>
+                    <select id="nota-topping" class="form-select">
+                        <option value="">(sin especificar)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-muted">Otra indicación (opcional)</label>
+                    <input type="text" id="nota-libre" class="form-control" placeholder="Ej. sin azúcar, extra caliente...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btn-guardar-nota" class="btn btn-cafeteria-primary">Guardar nota</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Nombre del cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="input-nombre-cliente" class="form-control" placeholder="Nombre del cliente (opcional)">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btn-guardar-cliente" class="btn btn-cafeteria-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/bootstrap.bundle.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/ventas.js"></script>
+<script>
+document.getElementById('fecha-actual').textContent = new Date().toLocaleString('es-MX', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+});
+</script>
+</body>
+</html>

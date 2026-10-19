@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+:root {
+    --oat: #EDE3D2;
+    --paper: #FBF6EC;
+    --ink: #2B1D14;
+    --ink-soft: #6B5C4C;
+    --sage: #5F7346;
+    --sage-dark: #4A5A37;
+    --caramel: #C1892F;
+    --brick: #A6432D;
+    --line: #D9CBB2;
+    --radius: 10px;
+    --brick: #A6432D;
+}
+
+body {
+    background: var(--oat);
+    background-image: radial-gradient(circle at 1px 1px, rgba(43,29,20,0.05) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Nota: este archivo NO reemplaza a Bootstrap, se carga DESPUÉS en el HTML
+   para ajustar colores, tipografía y detalles propios de la cafetería. */
+
+.navbar-cafeteria {
+    background: var(--ink) !important;
+}
+.navbar-cafeteria .navbar-brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--paper) !important;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.navbar-cafeteria .navbar-brand span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--caramel);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.navbar-cafeteria .nav-link {
+    color: rgba(251,246,236,0.85) !important;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 8px 16px !important;
+    margin: 0 3px;
+    border: 1px solid transparent;
+}
+.navbar-cafeteria .nav-link:hover { border-color: rgba(251,246,236,0.4); }
+.navbar-cafeteria .nav-link.active {
+    background: var(--caramel);
+    color: var(--ink) !important;
+}
+
+h1.page-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+}
+.page-sub { color: var(--ink-soft); }
+
+.card-cafeteria {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 0 var(--line);
+}
+
+/* Botones de producto en la pantalla de venta */
+.producto-btn {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.1s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.producto-btn:hover {
+    border-color: var(--sage);
+    box-shadow: 0 3px 0 var(--sage);
+    transform: translateY(-2px);
+}
+.producto-btn .cat {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+}
+.producto-btn .nombre { font-weight: 600; font-size: 0.98rem; line-height: 1.25; color: var(--ink); }
+.producto-btn .precio {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--sage-dark);
+    font-weight: 600;
+}
+
+/* Recibo tipo ticket */
+.recibo {
+    background: var(--paper);
+    border-radius: var(--radius);
+    padding: 22px 20px 20px;
+    position: relative;
+    box-shadow: 0 2px 0 var(--line);
+}
+.recibo::before {
+    content: "";
+    position: absolute;
+    top: -8px; left: 16px; right: 16px;
+    height: 16px;
+    background-image: radial-gradient(circle at 8px 8px, var(--oat) 8px, transparent 8.5px);
+    background-size: 16px 16px;
+    background-position: top;
+}
+.recibo h2 { font-family: 'Fraunces', serif; font-size: 1.15rem; margin-bottom: 2px; }
+.recibo .fecha { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--ink-soft); margin-bottom: 14px; }
+
+.ticket-linea {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 0.9rem;
+}
+.accion-linea {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+.accion-linea:hover {
+    border-color: var(--sage);
+    color: var(--sage-dark);
+}
+.accion-linea.accion-quitar:hover {
+    border-color: var(--brick);
+    color: var(--brick);
+}
+.ticket-linea .nom { font-weight: 500; }
+.ticket-linea .cant { color: var(--ink-soft); font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; }
+.ticket-linea .sub { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+/* .quitar-btn { background: none; border: none; color: var(--brick); cursor: pointer; font-size: 0.76rem; padding: 0; text-decoration: underline; } */
+.ticket-vacio { padding: 24px 0; text-align: center; color: var(--ink-soft); font-size: 0.9rem; }
+
+.totales .fila { display: flex; justify-content: space-between; padding: 6px 0; font-family: 'IBM Plex Mono', monospace; font-size: 0.92rem; }
+.totales .fila.total { border-top: 2px solid var(--ink); margin-top: 6px; padding-top: 10px; font-size: 1.6rem; font-weight: 700; color: var(--sage-dark); }
+.totales .fila.cambio { color: var(--brick); font-weight: 700; font-size: 1.6rem; }
+/* .totales .fila.cambio { color: var(--caramel); font-weight: 700; font-size: 1.05rem; } */
+
+.btn-cafeteria-primary {
+    background: var(--sage); border-color: var(--sage); color: #fff; font-weight: 700;
+}
+.btn-cafeteria-primary:hover { background: var(--sage-dark); border-color: var(--sage-dark); color: #fff; }
+
+.stat-card .label { font-size: 0.75rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-card .value { font-family: 'IBM Plex Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--sage-dark); }
+
+.badge-activo { background: var(--sage); }
+.badge-inactivo { background: var(--ink-soft); }
+
+.tabla-cafeteria thead { background: var(--ink); color: var(--paper); }
+.tabla-cafeteria td, .tabla-cafeteria th { vertical-align: middle; }
+.num-mono { font-family: 'IBM Plex Mono', monospace; }

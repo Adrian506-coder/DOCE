@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cafetería · Inicio</title>
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-md navbar-dark navbar-cafeteria">
+    <div class="container">
+        <a class="navbar-brand" href="index.html">DOCE <span>Cafetería</span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link active" href="index.html">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="ventas.html">Venta</a></li>
+                <li class="nav-item"><a class="nav-link" href="ordenes.html">Órdenes</a></li>
+                <li class="nav-item"><a class="nav-link" href="productos.html">Productos</a></li>
+                <li class="nav-item"><a class="nav-link" href="historial.html">Historial y corte</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="container py-4">
+    <h1 class="page-title">Buen día ☕</h1>
+    <p class="page-sub mb-4">Este es el resumen de hoy. Elige a dónde quieres ir.</p>
+
+    <div class="row g-3 mb-4" id="stats-hoy">
+        <div class="col-12 text-muted">Cargando resumen del día...</div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="ventas.html" class="text-decoration-none">
+                <div class="card-cafeteria p-4 h-100">
+                    <h2 class="h5" style="font-family:'Fraunces',serif;">Nueva venta</h2>
+                    <p class="text-muted mb-0">Selecciona productos, calcula el cambio y cobra.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="productos.html" class="text-decoration-none">
+                <div class="card-cafeteria p-4 h-100">
+                    <h2 class="h5" style="font-family:'Fraunces',serif;">Productos</h2>
+                    <p class="text-muted mb-0">Agrega lo que venden o desactiva lo que ya no.</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="historial.html" class="text-decoration-none">
+                <div class="card-cafeteria p-4 h-100">
+                    <h2 class="h5" style="font-family:'Fraunces',serif;">Historial y corte</h2>
+                    <p class="text-muted mb-0">Revisa lo vendido y saca tus cuentas por día.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</main>
+
+<script src="css/bootstrap.bundle.min.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const ahora = new Date();
+    const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+    const cont = document.getElementById('stats-hoy');
+    try {
+        const data = await apiGet(`conexion/api.php?recurso=ventas&desde=${hoy}&hasta=${hoy}`);
+        cont.innerHTML = `
+            <div class="col-6 col-md-4">
+                <div class="card-cafeteria stat-card p-3">
+                    <div class="label">Vendido hoy</div>
+                    <div class="value">${formatoDinero(data.resumen.total_periodo)}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="card-cafeteria stat-card p-3">
+                    <div class="label">Ventas de hoy</div>
+                    <div class="value">${data.resumen.num_ventas}</div>
+                </div>
+            </div>`;
+    } catch (e) {
+        cont.innerHTML = `<div class="col-12"><div class="alert alert-danger">${e.message}</div></div>`;
+    }
+});
+</script>
+</body>
+</html>
