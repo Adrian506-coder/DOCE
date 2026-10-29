@@ -229,6 +229,20 @@ function renderCarrito() {
 
 let modalNotaInstance = null;
 
+function separarNota(nota) {
+    const resultado = { leche: '', topping: '', libre: [] };
+    (nota || '').split(' · ').forEach(parte => {
+        if (parte.startsWith('Leche: ')) {
+            resultado.leche = parte.slice('Leche: '.length);
+        } else if (parte.startsWith('Topping: ')) {
+            resultado.topping = parte.slice('Topping: '.length);
+        } else if (parte.trim() !== '') {
+            resultado.libre.push(parte);
+        }
+    });
+    return resultado;
+}
+
 function abrirModalNota(idx) {
     const carrito = leerCarrito();
     const linea = carrito[idx];
@@ -255,9 +269,19 @@ function abrirModalNota(idx) {
     grupoLeche.style.display = esWaffle ? 'none' : '';
     grupoTopping.style.display = esWaffle ? '' : 'none';
 
-    selectLeche.value = '';
-    selectTopping.value = '';
-    document.getElementById('nota-libre').value = linea.nota || '';
+        const partes = separarNota(linea.nota);
+
+    selectLeche.value = partes.leche;
+    if (selectLeche.value !== partes.leche) {
+        partes.libre.unshift(`Leche: ${partes.leche}`);
+        selectLeche.value = '';
+    }
+    selectTopping.value = partes.topping;
+    if (selectTopping.value !== partes.topping) {
+        partes.libre.unshift(`Topping: ${partes.topping}`);
+        selectTopping.value = '';
+    }
+    document.getElementById('nota-libre').value = partes.libre.join(' · ');
 
     const modalEl = document.getElementById('modalNota');
     modalNotaInstance = modalNotaInstance || new bootstrap.Modal(modalEl);
