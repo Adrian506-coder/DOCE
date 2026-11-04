@@ -366,8 +366,174 @@ async function cobrar(e) {
     procesarPago('efectivo');
 }
 
+/* ---------- Cobro con terminal Mercado Pago Point ---------- */
+
+const PAGO_TARJETA_KEY = 'pos_pago_tarjeta_pendiente';
+const INTERVALO_CONSULTA_MS = 3000;
+const ESTADOS_FINALES = ['aprobado', 'rechazado', 'cancelado', 'expirado', 'error'];
+
+let modalTarjetaInstance = null;
+let pagoTarjetaId = null;
+let timerConsulta = null;
+let consultando = false;
+
+function guardarPagoPendiente(id) {
+    try { localStorage.setItem(PAGO_TARJETA_KEY, String(id)); } catch {}
+}
+
+function borrarPagoPendiente() {
+    try { localStorage.removeItem(PAGO_TARJETA_KEY); } catch {}
+}
+
+function leerPagoPendiente() {
+    try { return parseInt(localStorage.getItem(PAGO_TARJETA_KEY), 10) || null; } catch { return null; }
+}
+
+function mostrarModalTarjeta({ icono, mensaje, monto, esperando, final }) {
+    document.getElementById('tarjeta-icono').textContent = icono;
+    document.getElementById('tarjeta-mensaje').textContent = mensaje;
+    if (monto !== undefined) document.getElementById('tarjeta-monto').textContent = formatoDinero(monto);
+    document.getElementById('tarjeta-spinner').classList.toggle('d-none', !esperando);
+    document.getElementById('btn-cancelar-tarjeta').classList.toggle('d-none', !esperando);
+    document.getElementById('btn-cerrar-tarjeta').classList.toggle('d-none', !final);
+
+    const modalEl = document.getElementById('modalTarjeta');
+    modalTarjetaInstance = modalTarjetaInstance || new bootstrap.Modal(modalEl);
+    modalTarjetaInstance.show();
+}
+
+function detenerConsulta() {
+    if (timerConsulta) clearTimeout(timerConsulta);
+    timerConsulta = null;
+}
+
+function programarConsulta() {
+    detenerConsulta();
+    timerConsulta = setTimeout(consultarPagoTarjeta, INTERVALO_CONSULTA_MS);
+}
+
+async function consultarPagoTarjeta() {
+    if (!pagoTarjetaId || consultando) return;
+    consultando = true;
+    try {
+        const pago = await apiGet(`conexion/api.php?recurso=tarjeta&accion=estado&id=${pagoTarjetaId}`);
+        aplicarEstadoPago(pago);
+    } catch (e) {
+        // Error momentáneo (red, servidor): se sigue intentando. NO se asume que falló el pago.
+        document.getElementById('tarjeta-mensaje').textContent = 'Reintentando conexión... ' + e.message;
+        programarConsulta();
+    } finally {
+        consultando = false;
+    }
+}
+
+function aplicarEstadoPago(pago) {
+    if (pago.estado === 'pendiente') {
+        mostrarModalTarjeta({
+            icono: '💳', monto: pago.monto, esperando: true,
+            mensaje: 'Esperando al cliente en la terminal. Pídele que pase, inserte o acerque su tarjeta.'
+        });
+        programarConsulta();
+        return;
+    }
+
+    if (pago.estado === 'cancelando') {
+        mostrarModalTarjeta({
+            icono: '⏳', monto: pago.monto, esperando: true,
+            mensaje: 'Cancelando en la terminal...'
+        });
+        programarConsulta();
+        return;
+    }
+
+    // Estados finales
+    detenerConsulta();
+    borrarPagoPendiente();
+    pagoTarjetaId = null;
+
+    if (pago.estado === 'aprobado') {
+        vaciarCarrito();
+        document.getElementById('recibido').value = '';
+        mostrarModalTarjeta({
+            icono: '✅', monto: pago.monto, esperando: false, final: true,
+            mensaje: `Pago aprobado. Venta #${pago.venta_id} guardada.`
+        });
+        mostrarAlerta('alertas',
+            `Venta #${pago.venta_id} guardada (Tarjeta). Total ${formatoDinero(pago.monto)}`, 'success');
+        return;
+    }
+
+    const iconos = { rechazado: '❌', cancelado: '🚫', expirado: '⌛', error: '⚠️' };
+    mostrarModalTarjeta({
+        icono: iconos[pago.estado] || '⚠️', monto: pago.monto, esperando: false, final: true,
+        mensaje: `${pago.detalle || 'El cobro no se completó.'} No se cobró nada ni se guardó la venta; puedes intentar de nuevo.`
+    });
+}
+
 async function pagarConTarjeta() {
-    procesarPago('tarjeta');
+    limpiarAlerta('alertas');
+    const carrito = leerCarrito();
+    if (carrito.length === 0) {
+        mostrarAlerta('alertas', 'Agrega al menos un producto antes de cobrar.', 'danger');
+        return;
+    }
+    if (pagoTarjetaId) return; // ya hay un cobro en curso
+
+    document.getElementById('btn-tarjeta').disabled = true;
+    document.getElementById('btn-cobrar').disabled = true;
+    mostrarModalTarjeta({
+        icono: '💳', monto: totalCarrito(carrito), esperando: true,
+        mensaje: 'Enviando el cobro a la terminal...'
+    });
+    document.getElementById('btn-cancelar-tarjeta').disabled = true;
+
+    try {
+        const pago = await apiPost('conexion/api.php?recurso=tarjeta', {
+            accion: 'iniciar',
+            nombre_cliente: NOMBRE_CLIENTE,
+            carrito: carrito.map(l => ({ producto_id: l.producto_id, cantidad: l.cantidad, nota: l.nota || '' }))
+        });
+        pagoTarjetaId = pago.pago_id;
+        guardarPagoPendiente(pagoTarjetaId);
+        aplicarEstadoPago(pago);
+    } catch (err) {
+        mostrarModalTarjeta({
+            icono: '⚠️', esperando: false, final: true,
+            mensaje: `${err.message} No se cobró nada.`
+        });
+    } finally {
+        document.getElementById('btn-cancelar-tarjeta').disabled = false;
+        renderCarrito();
+    }
+}
+
+async function cancelarCobroTarjeta() {
+    if (!pagoTarjetaId) return;
+    const btn = document.getElementById('btn-cancelar-tarjeta');
+    btn.disabled = true;
+    try {
+        const pago = await apiPost('conexion/api.php?recurso=tarjeta', { accion: 'cancelar', id: pagoTarjetaId });
+        aplicarEstadoPago(pago);
+    } catch (err) {
+        document.getElementById('tarjeta-mensaje').textContent = err.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function cerrarModalTarjeta() {
+    if (modalTarjetaInstance) modalTarjetaInstance.hide();
+    renderCarrito();
+}
+
+// Si se recarga la página con un cobro en curso, se retoma donde iba.
+async function retomarCobroPendiente() {
+    const id = leerPagoPendiente();
+    if (!id) return;
+    pagoTarjetaId = id;
+    document.getElementById('btn-tarjeta').disabled = true;
+    document.getElementById('btn-cobrar').disabled = true;
+    await consultarPagoTarjeta();
 }
 
 function escapeHtml(str) {
@@ -384,6 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-vaciar').addEventListener('click', vaciarCarrito);
     document.getElementById('buscar-producto-venta').addEventListener('input', filtrarProductosVenta);
     document.getElementById('btn-tarjeta').addEventListener('click', pagarConTarjeta);
+    document.getElementById('btn-cancelar-tarjeta').addEventListener('click', cancelarCobroTarjeta);
+    document.getElementById('btn-cerrar-tarjeta').addEventListener('click', cerrarModalTarjeta);
+    retomarCobroPendiente();
     document.getElementById('btn-guardar-nota').addEventListener('click', guardarNota);
     document.getElementById('btn-cliente').addEventListener('click', abrirModalCliente);
     document.getElementById('btn-guardar-cliente').addEventListener('click', guardarCliente);

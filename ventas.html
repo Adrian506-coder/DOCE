@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cafetería · Venta</title>
-    <link rel="stylesheet" href="css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/png" href="img/Img_DOCE.PNG">
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cafetería · Venta</title>
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -132,6 +130,26 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" id="btn-guardar-cliente" class="btn btn-cafeteria-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTarjeta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="font-family:'Fraunces',serif;">Cobro con tarjeta</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div id="tarjeta-icono" class="mb-2" style="font-size:2.5rem;">💳</div>
+                <div id="tarjeta-monto" class="fw-bold" style="font-size:1.6rem;"></div>
+                <div id="tarjeta-mensaje" class="mt-2"></div>
+                <div id="tarjeta-spinner" class="spinner-border spinner-border-sm text-secondary mt-3" role="status"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancelar-tarjeta" class="btn btn-outline-secondary">Cancelar cobro</button>
+                <button type="button" id="btn-cerrar-tarjeta" class="btn btn-cafeteria-primary d-none">Cerrar</button>
             </div>
         </div>
     </div>
