@@ -45,6 +45,8 @@ if ($recurso === 'productos') {
     manejar_caja($conn, $metodo);
 } elseif ($recurso === 'ordenes') {
     manejar_ordenes($conn, $metodo);
+} elseif ($recurso === 'tarjeta') {
+    manejar_tarjeta($conn, $metodo);
 } else {
     error_json('Recurso no reconocido.', 404);
 }
@@ -195,34 +197,7 @@ function manejar_ventas($conn, $metodo) {
             error_json('El carrito está vacío.');
         }
 
-        $lineas = [];
-        $total = 0;
-
-        foreach ($carrito as $item) {
-            $producto_id = (int)($item['producto_id'] ?? 0);
-            $cantidad = (int)($item['cantidad'] ?? 0);
-            if ($producto_id <= 0 || $cantidad <= 0) continue;
-
-            $stmt = $conn->prepare("SELECT id, nombre, precio FROM productos WHERE id = ?");
-            $stmt->bind_param('i', $producto_id);
-            $stmt->execute();
-            $prod = $stmt->get_result()->fetch_assoc();
-            if (!$prod) continue;
-
-            $precio = (float)$prod['precio'];
-            $subtotal = $precio * $cantidad;
-            $total += $subtotal;
-            $nota = trim($item['nota'] ?? '');
-
-            $lineas[] = [
-                'producto_id' => $prod['id'],
-                'nombre' => $prod['nombre'],
-                'cantidad' => $cantidad,
-                'precio' => $precio,
-                'subtotal' => $subtotal,
-                'nota' => $nota
-            ];
-        }
+        [$lineas, $total] = armar_lineas($conn, $carrito);
 
         if (count($lineas) === 0) {
             error_json('No se pudo procesar ningún producto del carrito.');
@@ -238,24 +213,9 @@ function manejar_ventas($conn, $metodo) {
 
         $cambio = $recibido - $total;
 
-        $corte_id = null;
-        $resCorte = $conn->query("SELECT id FROM cortes_caja WHERE estado = 'abierto' ORDER BY id DESC LIMIT 1");
-        if ($rowCorte = $resCorte->fetch_assoc()) {
-            $corte_id = (int)$rowCorte['id'];
-        }
-
         $conn->begin_transaction();
         try {
-            $stmt = $conn->prepare("INSERT INTO ventas (corte_id, total, recibido, cambio, metodo_pago, nombre_cliente) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param('idddss', $corte_id, $total, $recibido, $cambio, $metodo_pago, $nombre_cliente);
-            $stmt->execute();
-            $venta_id = $conn->insert_id;
-
-            $stmt2 = $conn->prepare("INSERT INTO venta_detalle (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, nota) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            foreach ($lineas as $l) {
-                $stmt2->bind_param('iisidds', $venta_id, $l['producto_id'], $l['nombre'], $l['cantidad'], $l['precio'], $l['subtotal'], $l['nota']);
-                $stmt2->execute();
-            }
+            $venta_id = guardar_venta($conn, $lineas, $total, $recibido, $cambio, $metodo_pago, $nombre_cliente);
             $conn->commit();
         } catch (Exception $e) {
             $conn->rollback();
@@ -468,4 +428,379 @@ function manejar_caja($conn, $metodo) {
     }
 
     error_json('Método no permitido.', 405);
+}
+
+/* ==========================================================================
+   Helpers compartidos de ventas
+   ========================================================================== */
+
+/**
+ * Arma las líneas del carrito con los precios REALES de la base de datos
+ * (no se confía en los precios que manda el navegador).
+ * Devuelve [lineas, total].
+ */
+function armar_lineas($conn, $carrito) {
+    $lineas = [];
+    $total = 0;
+
+    foreach ($carrito as $item) {
+        $producto_id = (int)($item['producto_id'] ?? 0);
+        $cantidad = (int)($item['cantidad'] ?? 0);
+        if ($producto_id <= 0 || $cantidad <= 0) continue;
+
+        $stmt = $conn->prepare("SELECT id, nombre, precio FROM productos WHERE id = ?");
+        $stmt->bind_param('i', $producto_id);
+        $stmt->execute();
+        $prod = $stmt->get_result()->fetch_assoc();
+        if (!$prod) continue;
+
+        $precio = (float)$prod['precio'];
+        $subtotal = $precio * $cantidad;
+        $total += $subtotal;
+        $nota = trim($item['nota'] ?? '');
+
+        $lineas[] = [
+            'producto_id' => (int)$prod['id'],
+            'nombre' => $prod['nombre'],
+            'cantidad' => $cantidad,
+            'precio' => $precio,
+            'subtotal' => $subtotal,
+            'nota' => $nota
+        ];
+    }
+
+    return [$lineas, $total];
+}
+
+/**
+ * Inserta la venta y su detalle. NO abre transacción: quien la llama
+ * debe hacer begin_transaction() / commit() / rollback().
+ * Devuelve el id de la venta.
+ */
+function guardar_venta($conn, $lineas, $total, $recibido, $cambio, $metodo_pago, $nombre_cliente) {
+    $corte_id = null;
+    $resCorte = $conn->query("SELECT id FROM cortes_caja WHERE estado = 'abierto' ORDER BY id DESC LIMIT 1");
+    if ($rowCorte = $resCorte->fetch_assoc()) {
+        $corte_id = (int)$rowCorte['id'];
+    }
+
+    $stmt = $conn->prepare("INSERT INTO ventas (corte_id, total, recibido, cambio, metodo_pago, nombre_cliente) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param('idddss', $corte_id, $total, $recibido, $cambio, $metodo_pago, $nombre_cliente);
+    $stmt->execute();
+    $venta_id = $conn->insert_id;
+
+    $stmt2 = $conn->prepare("INSERT INTO venta_detalle (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, nota) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    foreach ($lineas as $l) {
+        $stmt2->bind_param('iisidds', $venta_id, $l['producto_id'], $l['nombre'], $l['cantidad'], $l['precio'], $l['subtotal'], $l['nota']);
+        $stmt2->execute();
+    }
+
+    return $venta_id;
+}
+
+
+/* ==========================================================================
+   Cobro con tarjeta: terminal Mercado Pago Point (API de Orders)
+   Flujo:  iniciar -> (la terminal pide la tarjeta) -> estado (polling) -> venta
+   La venta SOLO se guarda cuando Mercado Pago confirma el pago.
+   ========================================================================== */
+
+function cargar_config_mp() {
+    $ruta = __DIR__ . '/config_mp.php';
+    if (!file_exists($ruta)) {
+        error_json('Falta configurar Mercado Pago: copia conexion/config_mp.example.php como config_mp.php y llena tus datos.', 500);
+    }
+    $cfg = require $ruta;
+    if (!is_array($cfg) || empty($cfg['access_token']) || strpos($cfg['access_token'], 'XXXX') !== false) {
+        error_json('Falta el Access Token de Mercado Pago en conexion/config_mp.php.', 500);
+    }
+    return $cfg;
+}
+
+/**
+ * Llamada a la API de Mercado Pago. Devuelve [http_code, respuesta_decodificada].
+ */
+function mp_request($cfg, $metodo, $ruta, $body = null, $headers_extra = []) {
+    $ch = curl_init('https://api.mercadopago.com' . $ruta);
+
+    $headers = array_merge([
+        'Authorization: Bearer ' . $cfg['access_token'],
+        'Content-Type: application/json',
+    ], $headers_extra);
+
+    $opts = [
+        CURLOPT_CUSTOMREQUEST => $metodo,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_TIMEOUT => 20,
+    ];
+    if (!empty($cfg['cacert'])) {
+        $opts[CURLOPT_CAINFO] = $cfg['cacert'];
+    }
+    if ($body !== null) {
+        $opts[CURLOPT_POSTFIELDS] = json_encode($body);
+    }
+    curl_setopt_array($ch, $opts);
+
+    $raw = curl_exec($ch);
+    if ($raw === false) {
+        $err = curl_error($ch);
+        curl_close($ch);
+        error_json('No se pudo conectar con Mercado Pago: ' . $err, 502);
+    }
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return [$code, json_decode($raw, true)];
+}
+
+function mp_uuid() {
+    $d = random_bytes(16);
+    $d[6] = chr((ord($d[6]) & 0x0f) | 0x40);
+    $d[8] = chr((ord($d[8]) & 0x3f) | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($d), 4));
+}
+
+/** Saca un mensaje legible del error que devuelve Mercado Pago. */
+function mp_mensaje_error($code, $resp) {
+    $err = $resp['errors'][0] ?? null;
+    $codigo = $err['code'] ?? '';
+    $mapa = [
+        'already_queued_order_for_terminal' => 'La terminal ya tiene un cobro en espera. Termínalo o cancélalo en la terminal e intenta de nuevo.',
+        'forbidden_checking_terminal_owner' => 'Esa terminal no pertenece a la cuenta de Mercado Pago configurada.',
+        'unauthorized' => 'El Access Token de Mercado Pago no es válido.',
+    ];
+    if (isset($mapa[$codigo])) return $mapa[$codigo];
+    if ($code === 401) return $mapa['unauthorized'];
+    $detalle = $err['message'] ?? ($resp['message'] ?? '');
+    return 'Mercado Pago rechazó la solicitud (HTTP ' . $code . ')' . ($detalle ? ': ' . $detalle : '.');
+}
+
+/** Motivos de rechazo (status_detail) -> texto para el cajero. */
+function mp_texto_rechazo($detalle) {
+    $mapa = [
+        'bad_filled_card_data' => 'Datos de la tarjeta incorrectos.',
+        'high_risk' => 'El pago fue rechazado por seguridad (riesgo alto).',
+        'rejected_by_issuer' => 'El banco rechazó el pago.',
+        'required_call_for_authorize' => 'El banco requiere una llamada para autorizar el pago.',
+        'max_attempts_exceeded' => 'Se superó el máximo de intentos.',
+        'card_disabled' => 'La tarjeta está bloqueada o desactivada.',
+        'insufficient_amount' => 'Fondos insuficientes.',
+        'amount_limit_exceeded' => 'Se superó el límite de monto de la tarjeta.',
+        'processing_error' => 'Error técnico al procesar el pago.',
+        'invalid_installments' => 'La tarjeta no acepta ese número de cuotas.',
+        'in_review' => 'El pago quedó en revisión.',
+    ];
+    return $mapa[$detalle] ?? 'El pago no se completó.';
+}
+
+function pago_a_respuesta($pago) {
+    return [
+        'ok' => true,
+        'pago_id' => (int)$pago['id'],
+        'estado' => $pago['estado'],
+        'detalle' => $pago['detalle'],
+        'monto' => (float)$pago['monto'],
+        'venta_id' => $pago['venta_id'] !== null ? (int)$pago['venta_id'] : null,
+    ];
+}
+
+function obtener_pago($conn, $id, $bloquear = false) {
+    $sql = "SELECT * FROM pagos_tarjeta WHERE id = ?" . ($bloquear ? " FOR UPDATE" : "");
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc();
+}
+
+function actualizar_pago($conn, $id, $estado, $detalle = null) {
+    $stmt = $conn->prepare("UPDATE pagos_tarjeta SET estado = ?, detalle = ? WHERE id = ?");
+    $stmt->bind_param('ssi', $estado, $detalle, $id);
+    $stmt->execute();
+}
+
+function manejar_tarjeta($conn, $metodo) {
+
+    if ($metodo === 'GET') {
+        $accion = $_GET['accion'] ?? '';
+
+        // Ayuda de configuración: lista las terminales de la cuenta para copiar el terminal_id.
+        if ($accion === 'terminales') {
+            $cfg = cargar_config_mp();
+            [$code, $resp] = mp_request($cfg, 'GET', '/terminals/v1/list?limit=50&offset=0');
+            if ($code !== 200) error_json(mp_mensaje_error($code, $resp), 502);
+            responder(['ok' => true, 'terminales' => $resp['data']['terminals'] ?? []]);
+        }
+
+        // Estado de un cobro. El navegador lo consulta cada pocos segundos.
+        if ($accion === 'estado') {
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) error_json('Cobro no válido.');
+            $pago = obtener_pago($conn, $id);
+            if (!$pago) error_json('No existe ese cobro.', 404);
+
+            if (in_array($pago['estado'], ['pendiente', 'cancelando'], true) && $pago['mp_order_id']) {
+                $pago = sincronizar_pago($conn, $pago);
+            }
+            responder(pago_a_respuesta($pago));
+        }
+
+        error_json('Acción no reconocida.', 404);
+    }
+
+    if ($metodo === 'POST') {
+        $body = leer_json_body();
+        $accion = $body['accion'] ?? '';
+
+        if ($accion === 'iniciar') {
+            $cfg = cargar_config_mp();
+            if (empty($cfg['terminal_id']) || strpos($cfg['terminal_id'], 'XXXX') !== false) {
+                error_json('Falta el terminal_id en conexion/config_mp.php.', 500);
+            }
+
+            $carrito = $body['carrito'] ?? [];
+            $nombre_cliente = trim($body['nombre_cliente'] ?? '');
+            if (!is_array($carrito) || count($carrito) === 0) error_json('El carrito está vacío.');
+
+            [$lineas, $total] = armar_lineas($conn, $carrito);
+            if (count($lineas) === 0) error_json('No se pudo procesar ningún producto del carrito.');
+            if ($total <= 0) error_json('El total debe ser mayor a 0 para cobrar con tarjeta.');
+
+            $monto = round($total, 2);
+            $json_lineas = json_encode($lineas, JSON_UNESCAPED_UNICODE);
+
+            // 1) Se registra el intento ANTES de llamar a Mercado Pago.
+            $stmt = $conn->prepare("INSERT INTO pagos_tarjeta (monto, nombre_cliente, carrito_json) VALUES (?, ?, ?)");
+            $stmt->bind_param('dss', $monto, $nombre_cliente, $json_lineas);
+            $stmt->execute();
+            $pago_id = $conn->insert_id;
+
+            $external_reference = 'doce-' . $pago_id;
+            $stmt = $conn->prepare("UPDATE pagos_tarjeta SET external_reference = ? WHERE id = ?");
+            $stmt->bind_param('si', $external_reference, $pago_id);
+            $stmt->execute();
+
+            // 2) Se crea la orden; la terminal (modo PDV) la recibe sola.
+            $orden = [
+                'type' => 'point',
+                'external_reference' => $external_reference,
+                'expiration_time' => $cfg['expiracion'] ?? 'PT5M',
+                'transactions' => ['payments' => [['amount' => number_format($monto, 2, '.', '')]]],
+                'config' => ['point' => [
+                    'terminal_id' => $cfg['terminal_id'],
+                    'print_on_terminal' => $cfg['ticket_terminal'] ?? 'seller_ticket',
+                ]],
+            ];
+
+            [$code, $resp] = mp_request($cfg, 'POST', '/v1/orders', $orden, ['X-Idempotency-Key: ' . mp_uuid()]);
+
+            if ($code !== 201 && $code !== 200) {
+                $msg = mp_mensaje_error($code, $resp);
+                actualizar_pago($conn, $pago_id, 'error', mb_substr($msg, 0, 250));
+                error_json($msg, 502);
+            }
+
+            $mp_order_id = $resp['id'] ?? null;
+            $mp_payment_id = $resp['transactions']['payments'][0]['id'] ?? null;
+            $stmt = $conn->prepare("UPDATE pagos_tarjeta SET mp_order_id = ?, mp_payment_id = ?, estado = 'pendiente' WHERE id = ?");
+            $stmt->bind_param('ssi', $mp_order_id, $mp_payment_id, $pago_id);
+            $stmt->execute();
+
+            responder(pago_a_respuesta(obtener_pago($conn, $pago_id)));
+        }
+
+        if ($accion === 'cancelar') {
+            $id = (int)($body['id'] ?? 0);
+            $pago = $id > 0 ? obtener_pago($conn, $id) : null;
+            if (!$pago) error_json('No existe ese cobro.', 404);
+
+            if ($pago['estado'] !== 'pendiente' && $pago['estado'] !== 'cancelando') {
+                responder(pago_a_respuesta($pago));
+            }
+
+            $cfg = cargar_config_mp();
+            // x-allow-cancelable-status permite cancelar aunque la terminal ya tomó la orden.
+            [$code, $resp] = mp_request(
+                $cfg, 'POST', '/v1/orders/' . rawurlencode($pago['mp_order_id']) . '/cancel', null,
+                ['X-Idempotency-Key: ' . mp_uuid(), 'x-allow-cancelable-status: at_terminal']
+            );
+
+            if ($code === 200) {
+                actualizar_pago($conn, $id, 'cancelado', 'Cancelado desde el sistema.');
+            } elseif ($code === 202) {
+                // Solo se aceptó la solicitud; se confirma al consultar el estado.
+                actualizar_pago($conn, $id, 'cancelando', 'Cancelación solicitada a la terminal.');
+            }
+            // Cualquier otro código (p. ej. 409 porque ya se pagó): el estado real lo da sincronizar_pago.
+
+            $pago = obtener_pago($conn, $id);
+            if (in_array($pago['estado'], ['pendiente', 'cancelando'], true)) {
+                $pago = sincronizar_pago($conn, $pago);
+            }
+            responder(pago_a_respuesta($pago));
+        }
+
+        error_json('Acción no reconocida.');
+    }
+
+    error_json('Método no permitido.', 405);
+}
+
+/**
+ * Consulta la orden en Mercado Pago y actualiza el cobro local.
+ * Si el pago quedó aprobado, crea la venta (una sola vez, aunque haya varias consultas a la vez).
+ */
+function sincronizar_pago($conn, $pago) {
+    $cfg = cargar_config_mp();
+    [$code, $orden] = mp_request($cfg, 'GET', '/v1/orders/' . rawurlencode($pago['mp_order_id']));
+    if ($code !== 200 || !is_array($orden)) {
+        // Falla momentánea de red/API: se deja igual y el navegador volverá a consultar.
+        return $pago;
+    }
+
+    $status = $orden['status'] ?? '';
+    $pay = $orden['transactions']['payments'][0] ?? [];
+    $detalle_pago = $pay['status_detail'] ?? ($orden['status_detail'] ?? '');
+
+    if ($status === 'processed') {
+        return finalizar_pago_aprobado($conn, (int)$pago['id']);
+    }
+
+    if ($status === 'failed') {
+        actualizar_pago($conn, (int)$pago['id'], 'rechazado', mp_texto_rechazo($detalle_pago));
+    } elseif ($status === 'expired') {
+        actualizar_pago($conn, (int)$pago['id'], 'expirado', 'El cliente no pagó a tiempo.');
+    } elseif ($status === 'canceled') {
+        actualizar_pago($conn, (int)$pago['id'], 'cancelado', 'Cobro cancelado.');
+    } elseif ($status === 'refunded') {
+        actualizar_pago($conn, (int)$pago['id'], 'cancelado', 'El pago fue reembolsado.');
+    }
+    // created / at_terminal / action_required: sigue pendiente.
+
+    return obtener_pago($conn, (int)$pago['id']);
+}
+
+function finalizar_pago_aprobado($conn, $pago_id) {
+    $conn->begin_transaction();
+    try {
+        // FOR UPDATE: si dos consultas llegan juntas, la segunda espera y ya encuentra la venta creada.
+        $pago = obtener_pago($conn, $pago_id, true);
+
+        if ($pago['venta_id'] === null) {
+            $lineas = json_decode($pago['carrito_json'], true) ?: [];
+            $monto = (float)$pago['monto'];
+            $venta_id = guardar_venta($conn, $lineas, $monto, $monto, 0.0, 'tarjeta', $pago['nombre_cliente'] ?? '');
+
+            $stmt = $conn->prepare("UPDATE pagos_tarjeta SET estado = 'aprobado', detalle = 'Pago aprobado.', venta_id = ? WHERE id = ?");
+            $stmt->bind_param('ii', $venta_id, $pago_id);
+            $stmt->execute();
+        }
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        // El cobro SÍ se hizo en la terminal; la siguiente consulta reintentará guardar la venta.
+        error_json('El pago se aprobó pero no se pudo guardar la venta. Vuelve a consultar; no cobres de nuevo.', 500);
+    }
+    return obtener_pago($conn, $pago_id);
 }
